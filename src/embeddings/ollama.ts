@@ -94,8 +94,24 @@ export class OllamaEmbeddings implements EmbeddingProvider {
     }
   }
 
+  /**
+   * Truncate text to fit within embedding model context limits.
+   * BERT tokenizers average ~4 chars/token. 1800 chars ≈ 450 tokens,
+   * leaving headroom for special tokens ([CLS], [SEP]).
+   */
+  private truncateForEmbedding(text: string, maxChars: number = 1800): string {
+    if (text.length <= maxChars) return text;
+    let truncated = text.substring(0, maxChars);
+    const lastSpace = truncated.lastIndexOf(" ");
+    if (lastSpace > maxChars * 0.8) {
+      truncated = truncated.substring(0, lastSpace);
+    }
+    return truncated;
+  }
+
   private async callApi(text: string): Promise<OllamaEmbedResponse> {
     try {
+      const truncatedText = this.truncateForEmbedding(text);
       const response = await fetch(`${this.baseUrl}/api/embeddings`, {
         method: "POST",
         headers: {
@@ -103,7 +119,7 @@ export class OllamaEmbeddings implements EmbeddingProvider {
         },
         body: JSON.stringify({
           model: this.model,
-          prompt: text,
+          prompt: truncatedText,
         }),
       });
 
